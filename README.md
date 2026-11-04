@@ -7,21 +7,44 @@ AI MAX+ 395 (Strix Halo, Radeon 8060S), where visitors watch the speed rather th
 - `index.html`: the game, one file with no dependencies, so it works offline.
 - `server.py`: serves the page and streams completions from a backend as server-sent events, one round at a time.
   With SGLang the token count of every chunk is exact (`continuous_usage_stats`), so one brick is one token.
-- `run_sglang.sh`, `download_models.sh`: the local model server and its weights.
+- `setup_container.sh`, `download_models.sh`, `run_sglang.sh`: the container setup, the weights and the local model
+  server.
 
 ## Run
 
-The game server needs Python 3.10+ with `aiohttp`. The local model needs SGLang with
-[sgl-project/sglang#47695](https://github.com/sgl-project/sglang/pull/47695) (Quark INT4 W4A16 and gfx1151 kernels)
-until it merges; `run_sglang.sh` uses a checkout of it from `SGLANG_SRC`.
+Everything runs in a container from `rocm/sgl-dev:v0.5.23-rocm724-gfx1151-20261030`, which already has the Python
+packages the demo uses (aiohttp, huggingface_hub, Triton 3.7, PyTorch). On Windows 11 with WSL2 (Docker Desktop):
 
 ```bash
+docker run -it --name token-breaker --network=host --ipc=host --shm-size 16G \
+  --device=/dev/dxg -v /usr/lib/wsl/lib/libdxcore.so:/usr/lib/libdxcore.so \
+  -v C:/Users/<you>/data:/data -v C:/path/to/token-breaker:/token-breaker \
+  rocm/sgl-dev:v0.5.23-rocm724-gfx1151-20261030 bash
+```
+
+On native Linux, pass the usual ROCm devices instead of the two WSL flags
+(`--device=/dev/kfd --device=/dev/dri --group-add video`); that path was not tested here. Then, inside the container:
+
+```bash
+cd /token-breaker
+./setup_container.sh                    # WSL GPU libraries, SGLang with sglang#47695 at a pinned commit, GPU check
 ./download_models.sh                    # Qwen3.8-27B Quark INT4 + DFlash2 drafter, about 22 GB, into /data/models
 ./run_sglang.sh                         # SGLang on 127.0.0.1:30000; a cold start takes about 6.5 minutes
 python3 server.py --backend sglang      # then open http://localhost:8765
 ```
 
-Without a GPU, the same page runs on two test backends, each labelled on screen:
+Behind a TLS-inspecting proxy, add the proxy's CA to the container's system store (`update-ca-certificates`) before the
+setup and download steps.
+
+`setup_container.sh` is needed until [sgl-project/sglang#47695](https://github.com/sgl-project/sglang/pull/47695)
+(Quark INT4 W4A16 and gfx1151 kernels) merges, because the image's own SGLang cannot load the Quark INT4 checkpoint. It
+adds a checkout of the PR beside the image's one (`run_sglang.sh` reads it from `SGLANG_SRC`), installs `rocdxg-roct`
+from [ROCm/librocdxg](https://github.com/ROCm/librocdxg/releases) when `/dev/dxg` exists, and checks that PyTorch sees
+the GPU. Accuracy on this image was not re-measured; the PR reports GSM8K 0.965 for this checkpoint on the 20261102
+image.
+
+The game server alone needs only Python 3.10+ with `aiohttp`. Without a GPU, the same page runs on two test backends,
+each labelled on screen:
 
 ```bash
 python3 server.py --backend mock                           # paced fake tokens
@@ -50,7 +73,5 @@ at its best serving one person at a time.
   compiling kernels for the new shapes.
 - The browser shares the GPU with the model, so the page draws only while something moves and keeps the wall and the
   hidden message in cached layers.
-- Windows 11 with WSL2 (Docker Desktop): the GPU is reached through `/dev/dxg`. In the container, install `rocdxg-roct`
-  from [ROCm/librocdxg](https://github.com/ROCm/librocdxg/releases), copy `libdxcore.so` from `/usr/lib/wsl/lib` of the
-  `docker-desktop` distro to `/usr/lib`, and set `HSA_ENABLE_DXG_DETECTION=1` with ROCm before 7.13 (`run_sglang.sh`
-  does when `/dev/dxg` exists).
+- Under WSL, ROCm before 7.13 looks for the GPU through `/dev/dxg` only with `HSA_ENABLE_DXG_DETECTION=1`;
+  `run_sglang.sh` sets it when `/dev/dxg` exists.
