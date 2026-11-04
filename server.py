@@ -321,7 +321,14 @@ async def config(request):
 async def health(request):
     app = request.app
     ok, detail = await app["backend"].health()
-    return web.json_response({"ok": ok, "detail": detail, "busy": app["lock"].locked(), "warming": app["state"]["warming"] > 0})
+    page = (ROOT / "index.html").stat()
+    return web.json_response({
+        "ok": ok,
+        "detail": detail,
+        "busy": app["lock"].locked(),
+        "warming": app["state"]["warming"] > 0,
+        "page": f"{page.st_mtime_ns:x}-{page.st_size:x}",
+    })
 
 
 async def index(request):

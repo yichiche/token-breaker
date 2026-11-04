@@ -146,7 +146,7 @@ let health = { ok: true, warming: false };
 let wall = null, run = null, layer = null, wallSerial = 0;
 let beams = [], sparks = [];
 let nextStage = 0, idleSince = performance.now(), lastDraw = 0, framePending = false;
-let persistentBanner = null, flashUntil = 0;
+let persistentBanner = null, flashUntil = 0, pageVersion = null;
 
 function hexToRgb(h) {
   const n = parseInt(h.slice(1), 16);
@@ -661,6 +661,9 @@ async function poll() {
     else banner(null, "");
   }
   if (!run || run.finished) setButtons(health.ok && !health.warming);
+  // A display left open picks up an edited page by itself, but never in the middle of a round.
+  pageVersion ??= health.page;
+  if (health.page && health.page !== pageVersion && (!run || run.finished)) location.reload();
 }
 
 async function loadConfig() {
