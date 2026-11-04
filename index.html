@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Breaker</title>
+<style>
+  :root {
+    --bg: #07080c; --fg: #f4f5f7; --dim: #8b92a3; --accent: #ff3b3b;
+    --panel: #0f121a; --line: #1e2433;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+    font-family: "Segoe UI", "Microsoft JhengHei", "Noto Sans CJK TC", "PingFang TC", sans-serif;
+  }
+  body { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100vh; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 2vw; padding: 2vh 2.4vw 1.4vh; }
+  h1 { font-size: 4.4vh; font-weight: 800; letter-spacing: .02em; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .sub { margin-top: .5vh; font-size: 2.1vh; color: var(--dim); }
+  .badges { text-align: right; white-space: nowrap; }
+  #model { font-size: 3vh; font-weight: 700; }
+  #hw { margin-top: .4vh; font-size: 2vh; color: var(--dim); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 27vw; gap: 1.6vw; padding: 0 2.4vw; min-height: 0; }
+  canvas {
+    display: block; width: 100%; height: 100%; border: 1px solid var(--line); border-radius: 16px;
+    background: radial-gradient(ellipse at 50% 110%, #182036 0%, #0a0c12 62%, var(--bg) 100%);
+  }
+  aside { display: flex; flex-direction: column; gap: 1.6vh; min-height: 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 2vh 1.5vw; }
+  .tps { font-size: 16vh; font-weight: 800; line-height: .95; font-variant-numeric: tabular-nums; }
+  .tps.idle { color: #343a4a; }
+  .unit { margin-left: .5vw; font-size: 3.2vh; font-weight: 700; color: var(--dim); }
+  .label { margin-top: 1vh; font-size: 1.9vh; color: var(--dim); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8vh 1vw; }
+  .stats b { display: block; font-size: 4.4vh; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stats span { font-size: 1.8vh; color: var(--dim); }
+  .out { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .out .label { margin-top: 0; }
+  #ticker {
+    flex: 1; min-height: 0; overflow: hidden; margin-top: 1vh;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    font: 1.7vh/1.45 Consolas, "Cascadia Mono", "Microsoft JhengHei", monospace; color: #a3abbd;
+    white-space: pre-wrap; word-break: break-all;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 35%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 35%);
+  }
+  footer { display: flex; gap: 1.4vw; padding: 1.8vh 2.4vw 2.4vh; }
+  .stages { flex: 1; display: flex; gap: 1.4vw; }
+  .stage {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: .8vw; padding: 2vh 1vw;
+    font: inherit; font-size: 3vh; font-weight: 700; color: var(--fg); cursor: pointer;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--c) 22%, transparent), transparent);
+    border: 2px solid var(--c); border-radius: 16px; transition: transform .1s, opacity .2s;
+  }
+  .stage:hover:not(:disabled) { transform: translateY(-2px); }
+  .stage:disabled, .turrets button:disabled { opacity: .3; cursor: default; }
+  .stage kbd { font: inherit; font-size: 2.2vh; padding: .2vh .6vw; border-radius: 8px; background: var(--c); color: #000; }
+  .stage small { font-size: 2.2vh; font-weight: 600; color: var(--dim); }
+  .turrets { display: flex; align-items: center; gap: .5vw; padding: 0 1.2vw; border: 2px solid var(--line); border-radius: 16px; }
+  .turrets span { margin-right: .3vw; font-size: 2.2vh; font-weight: 700; color: var(--dim); }
+  .turrets button {
+    width: 5.6vh; height: 5.6vh; font: inherit; font-size: 2.6vh; font-weight: 800; color: var(--dim); cursor: pointer;
+    background: transparent; border: 2px solid var(--line); border-radius: 10px;
+  }
+  .turrets button.on { color: var(--fg); border-color: var(--fg); background: #1a2030; }
+  #banner {
+    position: fixed; top: 0; left: 50%; transform: translateX(-50%); display: none;
+    padding: .7vh 1.6vw; border-radius: 0 0 12px 12px; font-size: 2.1vh; font-weight: 800;
+  }
+  #banner.warn { display: block; background: #ffb020; color: #111; }
+  #banner.bad { display: block; background: #ff3b3b; color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Every token <em>breaks a brick</em></h1>
+    <div class="sub">Each token the model generates fires a laser at one brick, so the wall falls exactly as fast as the model writes</div>
+  </div>
+  <div class="badges"><div id="model">…</div><div id="hw"></div></div>
+</header>
+<main>
+  <canvas id="game"></canvas>
+  <aside>
+    <div class="card">
+      <div><span class="tps idle" id="tps">0.0</span><span class="unit">tok/s</span></div>
+      <div class="label" id="tpsLabel">Decode speed · single request · excludes time to first token</div>
+      <div class="label" id="spec"></div>
+    </div>
+    <div class="card stats">
+      <div><b id="ttft">—</b><span id="ttftLabel">Time to first token</span></div>
+      <div><b id="count">0</b><span>Bricks broken = tokens</span></div>
+      <div><b id="elapsed">—</b><span>Total time</span></div>
+      <div><b id="phase">Idle</b><span>Status</span></div>
+    </div>
+    <div class="card out">
+      <div class="label" id="outLabel">Live model output (watch the speed, not the words)</div>
+      <div id="ticker"><span id="out"></span></div>
+    </div>
+  </aside>
+</main>
+<footer>
+  <div class="stages" id="stages"></div>
+  <div class="turrets" id="turrets"><span>Turrets</span></div>
+</footer>
+<div id="banner"></div>
+<script>
+"use strict";
+
+// Each prompt asks for more than one wall of text. Tables, code and this translation run fastest because the DFlash2
+// drafter's guesses are accepted more often there (4 to 6 tokens per step, against 2 to 3 for free prose).
+// The translation stage keeps a Chinese source sentence; its answer is English.
+const STAGES = [
+  {
+    name: "Stage 1", title: "Table", colors: ["#ff4d4f", "#ff7a45", "#ffc53d"], reveal: ["27B parameters", "on this machine"],
+    prompt: "Create a markdown table of the 12 months with columns: month, number of days, season in Taiwan, and a typical festival.",
+  },
+  {
+    name: "Stage 2", title: "Web page", colors: ["#2f6bff", "#13c2c2", "#95de64"], reveal: ["No cloud", "One chip"],
+    prompt: "Write a complete single-file to-do list web page in HTML, CSS and JavaScript that can add, delete and mark items as done, with code comments.",
+  },
+  {
+    name: "Stage 3", title: "Translate", colors: ["#9254de", "#f759ab", "#ffadd2"], reveal: ["STRIX HALO", "Local inference"],
+    prompt: "Translate this Chinese sentence into English, then explain each part of it in English: 「歡迎來到我們的攤位！這台小電腦正在本機即時執行大型語言模型，不需要連上雲端。」",
+  },
+];
+// With several turrets each streams its own request: the chosen stage's prompt, then the next ones of this pool.
+const EXTRA_PROMPTS = [
+  "Generate a JSON array of 10 fictional gadgets. Each item has name, price_usd, category, and a one-sentence description.",
+];
+const LANE_COLORS = ["#ff4d4f", "#36cfc9", "#ffd666", "#b37feb"];
+
+const params = new URLSearchParams(location.search);
+const ATTRACT_S = Number(params.get("attract") || 0);
+const FONT = '"Segoe UI", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
+const $ = (id) => document.getElementById(id);
+const canvas = $("game");
+const ctx = canvas.getContext("2d");
+
+let W = 0, H = 0;
+let cfg = { backend: "?", max_tokens: Number(params.get("tokens")) || 192, max_lanes: 4 };
+let turrets = Math.min(4, Math.max(1, Number(params.get("turrets")) || 1));
+let health = { ok: true, warming: false };
+let wall = null, run = null, layer = null, wallSerial = 0;
+let beams = [], sparks = [];
+let nextStage = 0, idleSince = performance.now(), lastDraw = 0, framePending = false;
+let persistentBanner = null, flashUntil = 0;
+
+function hexToRgb(h) {
+  const n = parseInt(h.slice(1), 16);
+  return [n >> 16, (n >> 8) & 255, n & 255];
+}
+
+function mix(colors, t) {
+  const x = Math.min(Math.max(t, 0), 1) * (colors.length - 1);
+  const i = Math.min(Math.floor(x), colors.length - 2), f = x - i;
+  const a = hexToRgb(colors[i]), b = hexToRgb(colors[i + 1]);
+  return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(",")})`;
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const fmtS = (s) => (s == null ? "—" : `${s.toFixed(s < 10 ? 2 : 1)} s`);
+const laneColor = (L) => LANE_COLORS[L % LANE_COLORS.length];
+
+function resize() {
+  const r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpr);
+  canvas.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  W = r.width;
+  H = r.height;
+  wake();
+}
+
+// Each turret owns one lane of the wall, one brick per token of its request. A lane's top row is partly filled;
+// bricks fall bottom row first, random within a row.
+function buildWall(stage, perLane, nLanes) {
+  const laneCols = Math.max(4, Math.ceil(Math.sqrt((perLane * 4) / 3 / nLanes)));
+  const rows = Math.ceil(perLane / laneCols);
+  const bricks = [], lanes = [];
+  for (let L = 0; L < nLanes; L++) {
+    const mine = [];
+    for (let r = 0; r < rows; r++) {
+      const k = r === 0 ? perLane - (rows - 1) * laneCols : laneCols;
+      for (let i = 0; i < k; i++) {
+        mine.push(bricks.length);
+        bricks.push({
+          c: L * laneCols + (laneCols - k) / 2 + i, r, alive: true,
+          color: mix(stage.colors, rows > 1 ? r / (rows - 1) : 0),
+        });
+      }
+    }
+    const order = [];
+    for (let r = rows - 1; r >= 0; r--) order.push(...shuffle(mine.filter((i) => bricks[i].r === r)));
+    lanes.push({ order, next: 0, aim: -Math.PI / 2 });
+  }
+  wall = {
+    id: ++wallSerial, stage, bricks, lanes, laneCols, cols: laneCols * nLanes, rows, perLane,
+    total: perLane * nLanes, fadeStart: 0,
+  };
+  wake();
+}
+
+function geometry() {
+  const x = W * 0.04, y = H * 0.06, width = W - 2 * x;
+  const gap = Math.max(2, Math.round(W * (wall.cols > 20 ? 0.002 : 0.0028)));
+  const bw = (width - gap * (wall.cols - 1)) / wall.cols;
+  const bh = Math.min(bw * 0.5, (H * 0.58 - gap * (wall.rows - 1)) / wall.rows);
+  const R = Math.max(14, H * (wall.lanes.length > 1 ? 0.028 : 0.035));
+  const ty = H - R * 1.2, laneW = wall.laneCols * (bw + gap);
+  const guns = wall.lanes.map((_, i) => [x + (i + 0.5) * laneW - gap / 2, ty]);
+  return { x, y, width, height: wall.rows * bh + (wall.rows - 1) * gap, gap, bw, bh, R, ty, guns };
+}
+
+const rectOf = (b, g) => [g.x + b.c * (g.bw + g.gap), g.y + b.r * (g.bh + g.gap), g.bw, g.bh];
+
+function drawReveal(c, g) {
+  const lines = wall.stage.reveal;
+  let fs = g.height / (lines.length + 0.6);
+  c.save();
+  c.beginPath();
+  c.rect(g.x - g.gap, g.y - g.gap, g.width + 2 * g.gap, g.height + 2 * g.gap);
+  c.clip();
+  c.textAlign = "center";
+  c.textBaseline = "middle";
+  c.font = `900 ${fs}px ${FONT}`;
+  const widest = Math.max(...lines.map((l) => c.measureText(l).width));
+  if (widest > g.width * 0.9) fs *= (g.width * 0.9) / widest;
+  c.font = `900 ${fs}px ${FONT}`;
+  const grad = c.createLinearGradient(0, g.y, 0, g.y + g.height);
+  grad.addColorStop(0, "#ffffff");
+  grad.addColorStop(1, mix(wall.stage.colors, 0.5));
+  c.fillStyle = grad;
+  c.shadowColor = mix(wall.stage.colors, 0.3);
+  c.shadowBlur = fs * 0.25;
+  const lh = fs * 1.12, y0 = g.y + g.height / 2 - (lh * (lines.length - 1)) / 2;
+  lines.forEach((l, i) => c.fillText(l, g.x + g.width / 2, y0 + i * lh));
+  c.restore();
+}
+
+// A standing brick also hides the message across its share of the gaps, so its cell is a dark backing plus the brick.
+const cellOf = (g, [x, y, w, h]) => [x - g.gap / 2 - 0.5, y - g.gap / 2 - 0.5, w + g.gap + 1, h + g.gap + 1];
+
+function drawBrick(c, g, b) {
+  const rect = rectOf(b, g), [x, y, w, h] = rect;
+  c.fillStyle = "#0b0d14";
+  c.fillRect(...cellOf(g, rect));
+  c.fillStyle = b.color;
+  c.beginPath();
+  c.roundRect(x, y, w, h, Math.min(6, h * 0.2));
+  c.fill();
+  c.fillStyle = "rgba(255,255,255,.28)";
+  c.fillRect(x + 3, y + 2, w - 6, Math.max(2, h * 0.12));
+}
+
+function makeLayer() {
+  const el = document.createElement("canvas"), dpr = window.devicePixelRatio || 1;
+  el.width = Math.round(W * dpr);
+  el.height = Math.round(H * dpr);
+  const c = el.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [el, c];
+}
+
+// The canvas shares the GPU with the model, so the glowing message and the standing bricks are drawn once into
+// cached layers; a frame only copies them, and a falling brick erases just its own cell.
+function layersFor(g) {
+  const key = `${W}x${H}x${window.devicePixelRatio}:${wall.id}`;
+  if (layer && layer.key === key) return layer;
+  const [reveal, rc] = makeLayer();
+  drawReveal(rc, g);
+  const [bricks, bc] = makeLayer();
+  for (const b of wall.bricks) if (b.alive) drawBrick(bc, g, b);
+  layer = { key, reveal, bricks, bc };
+  return layer;
+}
+
+function drawBeams(now) {
+  beams = beams.filter((b) => now - b.t < 150);
+  ctx.save();
+  ctx.lineCap = "round";
+  for (const b of beams) {
+    const a = 1 - (now - b.t) / 150;
+    ctx.beginPath();
+    ctx.moveTo(b.x0, b.y0);
+    ctx.lineTo(b.x1, b.y1);
+    ctx.strokeStyle = b.color;
+    ctx.globalAlpha = a * 0.3;
+    ctx.lineWidth = 10;
+    ctx.stroke();
+    ctx.globalAlpha = a;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSparks(now, dt) {
+  sparks = sparks.filter((s) => now - s.t < s.life);
+  for (const s of sparks) {
+    s.vy += 900 * dt;
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    ctx.globalAlpha = 1 - (now - s.t) / s.life;
+    ctx.fillStyle = s.color;
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawTurrets(g, now) {
+  const multi = wall.lanes.length > 1;
+  wall.lanes.forEach((lane, L) => {
+    const [tx, ty] = g.guns[L];
+    const color = multi ? laneColor(L) : "#ff3b3b";
+    const ln = run && run.lanes.length === wall.lanes.length ? run.lanes[L] : null;
+    ctx.save();
+    if (ln && !run.finished && ln.first === null) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 20 + 30 * (0.5 + 0.5 * Math.sin(now / 120));
+    }
+    ctx.translate(tx, ty);
+    ctx.rotate(lane.aim + Math.PI / 2);
+    ctx.fillStyle = "#d9dde6";
+    ctx.fillRect(-g.R * 0.18, -g.R * 2.1, g.R * 0.36, g.R * 1.6);
+    ctx.rotate(-(lane.aim + Math.PI / 2));
+    ctx.fillStyle = "#2a3142";
+    ctx.beginPath();
+    ctx.arc(0, 0, g.R, Math.PI, 0);
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+    const v = ln && (ln.result ? ln.result.decode_tps : laneRate(ln));
+    if (multi && v != null) {
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.font = `800 ${Math.round(H * 0.026)}px ${FONT}`;
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${v.toFixed(1)} tok/s`, tx + g.R * 1.3, ty - g.R * 0.35);
+      ctx.restore();
+    }
+  });
+}
+
+function drawCaption(g, now) {
+  const n = wall.lanes.length;
+  let text = null, sub = null;
+  if (!run) {
+    text = "Press 1 / 2 / 3 to start";
+    if (n > 1) sub = `${n} turrets = ${n} requests at once, each clearing its own lane`;
+  } else if (!run.finished) {
+    if (run.lanes.every((ln) => ln.first === null)) text = `Reading the prompt (prefill) ${((now - run.t0) / 1000).toFixed(1)} s`;
+  } else if (run.result) {
+    const r = run.result, rate = r.decode_tps != null ? r.decode_tps.toFixed(1) : "—";
+    text = run.cleared ? "Wall cleared!" : "Finished";
+    sub = n > 1
+      ? `${n} requests · ${r.completion_tokens} tokens · ${fmtS(r.e2e_s)} · total ${rate} tok/s`
+      : `${r.completion_tokens} tokens · ${fmtS(r.e2e_s)} · ${rate} tok/s · press 1 / 2 / 3 again`;
+  } else {
+    text = "Press 1 / 2 / 3 to try again";
+  }
+  if (!text) return;
+  const y = g.y + g.height + (g.ty - g.R * 2.4 - (g.y + g.height)) * 0.5;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#f4f5f7";
+  ctx.font = `800 ${Math.round(H * 0.055)}px ${FONT}`;
+  ctx.fillText(text, W / 2, sub ? y - H * 0.03 : y);
+  if (sub) {
+    ctx.fillStyle = "#8b92a3";
+    ctx.font = `600 ${Math.round(H * 0.032)}px ${FONT}`;
+    ctx.fillText(sub, W / 2, y + H * 0.035);
+  }
+  ctx.restore();
+}
+
+function fire(now, g, L) {
+  const lane = wall.lanes[L];
+  const b = wall.bricks[lane.order[lane.next++]];
+  b.alive = false;
+  const rect = rectOf(b, g), [x, y, w, h] = rect;
+  layersFor(g).bc.clearRect(...cellOf(g, rect));
+  const cx = x + w / 2, cy = y + h / 2;
+  const [tx, ty] = g.guns[L];
+  lane.aim = Math.atan2(cy - ty, cx - tx);
+  const color = wall.lanes.length > 1 ? laneColor(L) : b.color;
+  beams.push({ x0: tx + Math.cos(lane.aim) * g.R * 2.1, y0: ty + Math.sin(lane.aim) * g.R * 2.1, x1: cx, y1: cy, t: now, color });
+  for (let i = 0, k = wall.lanes.length > 1 ? 5 : 9; i < k; i++) {
+    sparks.push({
+      x: cx + (Math.random() - 0.5) * w, y: cy + (Math.random() - 0.5) * h,
+      vx: (Math.random() - 0.5) * 520, vy: -Math.random() * 420,
+      t: now, life: 450 + Math.random() * 450, color: b.color, size: 2 + Math.random() * 3,
+    });
+  }
+}
+
+// Cumulative tokens the animation should have shown by time p: linear between chunk arrivals.
+function targetAt(a, p) {
+  if (!a.length || p <= a[0][0]) return 0;
+  let i = a.length - 1;
+  while (i > 0 && a[i][0] > p) i--;
+  if (i === a.length - 1) return a[i][1];
+  const [t0, c0] = a[i], [t1, c1] = a[i + 1];
+  return c0 + ((c1 - c0) * (p - t0)) / (t1 - t0);
+}
+
+function laneRate(ln) {
+  const a = ln.arrivals;
+  if (a.length < 3) return null;
+  const [t1, c1] = a[1], [tl, cl] = a[a.length - 1];
+  return tl > t1 ? ((cl - c1) * 1000) / (tl - t1) : null;
+}
+
+// Same as the server's total: tokens after each request's first chunk, over first token of any to last of any.
+function totalRate(lanes) {
+  let tokens = 0, t0 = Infinity, t1 = -Infinity;
+  for (const ln of lanes) {
+    const a = ln.arrivals;
+    if (a.length < 2) continue;
+    tokens += a[a.length - 1][1] - a[1][1];
+    t0 = Math.min(t0, a[1][0]);
+    t1 = Math.max(t1, a[a.length - 1][0]);
+  }
+  return t1 > t0 ? (tokens * 1000) / (t1 - t0) : null;
+}
+
+function tick(now, g) {
+  if (!run || run.finished) return;
+  $("elapsed").textContent = fmtS((now - run.t0) / 1000);
+  if (run.lanes.every((ln) => ln.first === null)) return;
+  let done = run.result !== null;
+  run.lanes.forEach((ln, L) => {
+    const lane = wall.lanes[L];
+    const cap = Math.min(wall.perLane, ln.final ?? Infinity);
+    if (ln.first !== null) {
+      const target = Math.min(cap, Math.floor(targetAt(ln.arrivals, now - ln.delay)));
+      while (lane.next < target) fire(now, g, L);
+    }
+    if (ln.final === null || lane.next < cap) done = false;
+  });
+  const rate = totalRate(run.lanes);
+  if (rate != null) setTps(rate);
+  setSpec();
+  $("count").textContent = `${wall.lanes.reduce((s, l) => s + l.next, 0)} / ${wall.total}`;
+  if (done) finish(run, now);
+}
+
+function startLane(r, ln, now) {
+  ln.first = now;
+  ln.arrivals.push([now - 120, 0]);
+  const slowest = Math.max(...r.lanes.filter((x) => x.first !== null).map((x) => x.first - r.t0));
+  $("ttft").textContent = fmtS(slowest / 1000);
+  setPhase("Generating");
+}
+
+function onEvent(r, ev) {
+  const now = performance.now();
+  if (ev.type === "error") {
+    r.error = ev.message;
+    return;
+  }
+  if (ev.type === "done") {
+    r.result = ev;
+    return;
+  }
+  const ln = r.lanes[ev.lane];
+  if (!ln) return;
+  if (ev.type === "token") {
+    if (ev.text && ev.lane === 0) appendOut(ev.text);
+    if (!ev.n) return;
+    if (ln.first === null) startLane(r, ln, now);
+    ln.arrivals.push([now, ev.total]);
+    // Lag playback a little more than one chunk so bursts of accepted draft tokens come out evenly.
+    const a = ln.arrivals, gaps = [];
+    for (let i = Math.max(2, a.length - 8); i < a.length; i++) gaps.push(a[i][0] - a[i - 1][0]);
+    if (gaps.length) {
+      gaps.sort((x, y) => x - y);
+      ln.delay = Math.min(700, Math.max(120, 1.4 * gaps[gaps.length >> 1]));
+    }
+  } else if (ev.type === "lane_done") {
+    ln.result = ev;
+    if (ln.first === null) startLane(r, ln, now);
+    if (ln.arrivals[ln.arrivals.length - 1][1] !== ev.completion_tokens) ln.arrivals.push([now, ev.completion_tokens]);
+    ln.final = ev.completion_tokens;
+  }
+}
+
+function finish(r, now) {
+  if (r.finished) return;
+  r.finished = true;
+  r.cleared = wall.lanes.every((l) => l.next >= wall.perLane);
+  if (wall.bricks.some((b) => b.alive)) wall.fadeStart = now;
+  for (const b of wall.bricks) b.alive = false;
+  wake();
+  if (r.result) {
+    const res = r.result;
+    setTps(res.decode_tps);
+    $("ttft").textContent = fmtS(res.ttft_s);
+    $("elapsed").textContent = fmtS(res.e2e_s);
+    $("count").textContent = `${res.completion_tokens} / ${wall.total}`;
+  }
+  setSpec();
+  setPhase(r.error ? "Error" : "Done");
+  setButtons(health.ok && !health.warming);
+  idleSince = now;
+}
+
+function lanePrompts(i, n) {
+  const pool = [...STAGES.map((s) => s.prompt), ...EXTRA_PROMPTS];
+  return Array.from({ length: n }, (_, k) => pool[(i + k) % pool.length]);
+}
+
+async function start(i) {
+  if ((run && !run.finished) || !health.ok || health.warming) return;
+  const stage = STAGES[i], n = turrets;
+  nextStage = (i + 1) % STAGES.length;
+  buildWall(stage, cfg.max_tokens, n);
+  beams = [];
+  sparks = [];
+  $("out").textContent = "";
+  setTps(null);
+  $("ttft").textContent = "—";
+  $("count").textContent = `0 / ${wall.total}`;
+  setPhase("Reading prompt");
+  setButtons(false);
+  const r = (run = {
+    t0: performance.now(),
+    lanes: Array.from({ length: n }, () => ({ first: null, arrivals: [], delay: 200, final: null, result: null })),
+    result: null, error: null, finished: false, cleared: false, ctrl: new AbortController(),
+  });
+  setSpec();
+  try {
+    const res = await fetch("api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompts: lanePrompts(i, n), max_tokens: cfg.max_tokens }),
+      signal: r.ctrl.signal,
+    });
+    if (!res.ok) throw new Error(res.status === 429 ? "server busy, try again in a moment" : `HTTP ${res.status}`);
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let k;
+      while ((k = buf.indexOf("\n\n")) >= 0) {
+        const frame = buf.slice(0, k);
+        buf = buf.slice(k + 2);
+        if (frame.startsWith("data: ")) onEvent(r, JSON.parse(frame.slice(6)));
+      }
+    }
+    if (r.result === null && !r.error) r.error = "stream interrupted";
+  } catch (e) {
+    r.error = r.error || (e.name === "AbortError" ? "cancelled" : e.message);
+  }
+  if (r.error) {
+    flash(`Error: ${r.error}`);
+    finish(r, performance.now());
+  }
+}
+
+function setTurrets(n) {
+  if (run && !run.finished) return;
+  turrets = Math.min(Math.max(1, n), cfg.max_lanes);
+  document.querySelectorAll("#turrets button").forEach((b) => b.classList.toggle("on", Number(b.dataset.n) === turrets));
+  const multi = turrets > 1;
+  $("tpsLabel").textContent = multi
+    ? `Total decode speed · ${turrets} requests at once · excludes time to first token`
+    : "Decode speed · single request · excludes time to first token";
+  $("ttftLabel").textContent = multi ? "Time to first token (slowest request)" : "Time to first token";
+  $("outLabel").textContent = multi
+    ? "Turret 1 output (watch the speed, not the words)"
+    : "Live model output (watch the speed, not the words)";
+  run = null;
+  buildWall(wall ? wall.stage : STAGES[0], cfg.max_tokens, turrets);
+  beams = [];
+  sparks = [];
+  setTps(null);
+  setSpec();
+  $("ttft").textContent = "—";
+  $("elapsed").textContent = "—";
+  $("count").textContent = `0 / ${wall.total}`;
+  $("out").textContent = "";
+  setPhase("Idle");
+}
+
+function appendOut(text) {
+  const el = $("out"), s = el.textContent + text;
+  el.textContent = s.length > 2400 ? s.slice(-2000) : s;
+}
+
+const setPhase = (text) => ($("phase").textContent = text);
+
+function setTps(v) {
+  const el = $("tps");
+  el.textContent = v == null ? "0.0" : v.toFixed(1);
+  el.classList.toggle("idle", v == null);
+}
+
+// With SGLang streaming every step, one chunk is one speculative verify step.
+function setSpec() {
+  const el = $("spec");
+  if (!run) {
+    el.textContent = "";
+  } else if (run.lanes.length > 1) {
+    const rates = run.lanes.map((ln) => (ln.result ? ln.result.decode_tps : laneRate(ln)));
+    el.textContent = rates.some((v) => v != null)
+      ? `Per turret: ${rates.map((v) => (v == null ? "—" : v.toFixed(1))).join(" / ")} tok/s`
+      : "";
+  } else if (cfg.backend === "sglang") {
+    const ln = run.lanes[0], a = ln.arrivals;
+    const tokens = ln.result ? ln.result.completion_tokens : a.length ? a[a.length - 1][1] : 0;
+    const steps = ln.result ? ln.result.chunks : Math.max(0, a.length - 1);
+    el.textContent = steps ? `Speculative decoding: ${(tokens / steps).toFixed(1)} tokens accepted per step` : "";
+  } else {
+    el.textContent = "";
+  }
+}
+
+function setButtons(enabled) {
+  document.querySelectorAll(".stage, #turrets button").forEach((b) => (b.disabled = !enabled));
+}
+
+function banner(kind, text) {
+  const el = $("banner");
+  el.className = kind || "";
+  el.textContent = text || "";
+}
+
+function flash(text, ms = 6000) {
+  banner("bad", text);
+  flashUntil = performance.now() + ms;
+}
+
+async function poll() {
+  try {
+    health = await (await fetch("api/health")).json();
+  } catch {
+    health = { ok: false, detail: "game server not responding" };
+  }
+  if (performance.now() > flashUntil) {
+    if (!health.ok) banner("bad", `Backend offline: ${health.detail}`);
+    else if (health.warming) banner("warn", "Warming up the model…");
+    else if (persistentBanner) banner(...persistentBanner);
+    else banner(null, "");
+  }
+  if (!run || run.finished) setButtons(health.ok && !health.warming);
+}
+
+async function loadConfig() {
+  const c = await (await fetch("api/config")).json();
+  cfg = { ...c, max_tokens: Number(params.get("tokens")) || c.max_tokens, max_lanes: c.max_lanes || 1 };
+  $("model").textContent = cfg.model_label;
+  $("hw").textContent = cfg.hw_label;
+  if (cfg.backend === "mock") persistentBanner = ["bad", "MOCK: simulated tokens, not model output"];
+  else if (cfg.backend === "claude") persistentBanner = ["warn", "Claude (cloud): pipeline test only, not local"];
+  for (let n = 1; n <= cfg.max_lanes; n++) {
+    const b = document.createElement("button");
+    b.dataset.n = n;
+    b.textContent = n;
+    b.onclick = () => setTurrets(n);
+    $("turrets").appendChild(b);
+  }
+  if (cfg.backend === "sglang") {
+    const rounds = [];
+    for (let i = 0; i < STAGES.length; i++) for (let n = 1; n <= cfg.max_lanes; n++) rounds.push(lanePrompts(i, n));
+    const res = await fetch("api/warmup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rounds }) });
+    if (!res.ok) flash(`Warmup request failed: HTTP ${res.status}`);
+  }
+}
+
+function wake() {
+  if (!framePending) {
+    framePending = true;
+    requestAnimationFrame(frame);
+  }
+}
+
+// Frames are drawn only while something moves; an idle page leaves the GPU to the model.
+function frame(now) {
+  framePending = false;
+  if (!wall || W === 0) return;
+  // Screens above 60 Hz would otherwise draw every refresh.
+  if (now - lastDraw < 15) {
+    wake();
+    return;
+  }
+  const dt = Math.min(0.05, (now - lastDraw) / 1000);
+  lastDraw = now;
+  const g = geometry();
+  tick(now, g);
+  const L = layersFor(g);
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(L.reveal, 0, 0, W, H);
+  let fade = 1;
+  if (wall.fadeStart) {
+    fade = 1 - (now - wall.fadeStart) / 600;
+    if (fade <= 0) {
+      L.bc.clearRect(0, 0, W, H);
+      wall.fadeStart = 0;
+    }
+  }
+  if (fade > 0) {
+    ctx.globalAlpha = fade;
+    ctx.drawImage(L.bricks, 0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+  drawBeams(now);
+  drawSparks(now, dt);
+  drawTurrets(g, now);
+  drawCaption(g, now);
+  if ((run && !run.finished) || beams.length || sparks.length || wall.fadeStart) wake();
+}
+
+STAGES.forEach((s, i) => {
+  const b = document.createElement("button");
+  b.className = "stage";
+  b.style.setProperty("--c", s.colors[0]);
+  b.innerHTML = `<kbd>${i + 1}</kbd>${s.name}<small>${s.title}</small>`;
+  b.onclick = () => start(i);
+  $("stages").appendChild(b);
+});
+
+addEventListener("keydown", (e) => {
+  idleSince = performance.now();
+  const i = Number(e.key) - 1;
+  if (Number.isInteger(i) && i >= 0 && i < STAGES.length) start(i);
+  else if (e.key === "t" || e.key === "T") setTurrets((turrets % cfg.max_lanes) + 1);
+  else if (e.key === "Escape" && run && !run.finished) run.ctrl.abort();
+  else if (e.key === "f" || e.key === "F") {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+  }
+});
+addEventListener("pointerdown", () => (idleSince = performance.now()));
+addEventListener("resize", resize);
+
+resize();
+buildWall(STAGES[0], cfg.max_tokens, turrets);
+loadConfig()
+  .then(() => {
+    setTurrets(turrets);
+    return poll();
+  })
+  .catch((e) => flash(`Could not load config: ${e.message}`));
+setInterval(poll, 3000);
+setInterval(() => {
+  const idle = !run || run.finished;
+  if (ATTRACT_S > 0 && idle && health.ok && !health.warming && performance.now() - idleSince > ATTRACT_S * 1000) {
+    start(nextStage);
+  }
+}, 1000);
+</script>
+</body>
+</html>
