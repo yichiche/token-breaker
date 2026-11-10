@@ -105,6 +105,13 @@ If the box is left empty and nobody touches the page for about 20 seconds, the
 demo starts a topic by itself. Typing anything pauses that. To turn it off, open
 http://localhost:8765/?attract=0
 
+## Slide backup
+
+[token-breaker-booth.mp4](token-breaker-booth.mp4) is an 18-second, 1920×1080
+recording of one Months round: the idle wall, the prompt, bricks falling, the
+done card, and View output. Drop it into a slide deck when the live machine is
+not available. The table stops at August because the 192-token wall runs out.
+
 ## Logs
 
 ```bash
