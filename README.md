@@ -51,8 +51,23 @@ python3 server.py --backend mock                           # paced fake tokens
 python3 server.py --backend claude --claude-model haiku    # Claude Code CLI: `claude auth login` or ANTHROPIC_API_KEY
 ```
 
-Keys: `1` `2` `3` start a stage, `T` cycles 1 to 4 turrets, `Esc` cancels, `F` toggles fullscreen.
-URL options: `?turrets=4`, `?tokens=192` (bricks per turret), `?attract=45` (play by itself after 45 s idle).
+On the booth page, **Enter** starts, **Esc** cancels, **F** toggles fullscreen.
+**T** cycles 1 to 4 requests while you are not typing in the prompt box.
+URL options: `?turrets=4`, `?tokens=192` (bricks per request), `?attract=20` (auto-play after N s idle; `?attract=0` turns it off).
+
+### Native Linux booth
+
+From this repo, with ROCm 7.2.4, Docker, and the Quark INT4 plus DFlash2 weights
+under `$HOME/data/models`:
+
+```bash
+./start_demo.sh
+```
+
+Open **http://localhost:8765**. How to drive the page is in [NOTES.md](NOTES.md).
+`./stop_demo.sh` deletes the container. `start_demo.sh` creates a new one from
+`rocm/sgl-dev:v0.5.23-rocm724-gfx1151-20261109` and launches the installed
+SGLang (`SGLANG_SRC=` empty), which already has the gfx1151 kernels.
 
 ## Turrets
 

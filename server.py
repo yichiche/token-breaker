@@ -320,13 +320,18 @@ async def config(request):
 
 async def health(request):
     app = request.app
+    state = app["state"]
     ok, detail = await app["backend"].health()
     page = (ROOT / "index.html").stat()
+    warming = state["warming"] > 0
     return web.json_response({
         "ok": ok,
         "detail": detail,
         "busy": app["lock"].locked(),
-        "warming": app["state"]["warming"] > 0,
+        "warming": warming,
+        "warmup_done": state["warmup_done"],
+        "warmup_total": state["warmup_total"],
+        "warmup_detail": state["warmup_detail"],
         "page": f"{page.st_mtime_ns:x}-{page.st_size:x}",
     })
 
@@ -335,42 +340,68 @@ async def index(request):
     return web.FileResponse(ROOT / "index.html", headers={"Cache-Control": "no-cache"})
 
 
+def _warmup_set(state, *, detail=None, add_total=0, add_done=0):
+    if add_total:
+        state["warmup_total"] += add_total
+    if add_done:
+        state["warmup_done"] += add_done
+    if detail is not None:
+        state["warmup_detail"] = detail
+
+
 async def warmup(app):
     """First requests after launch compile Triton kernels; take that hit before visitors do."""
     backend = app["backend"]
-    app["state"]["warming"] += 1
+    state = app["state"]
+    state["warming"] += 1
+    _warmup_set(state, detail="Waiting for SGLang…", add_total=2)
     try:
         async with app["lock"]:
             for _ in range(120):
                 ok, detail = await backend.health()
                 if ok:
                     break
+                _warmup_set(state, detail=f"Waiting for SGLang… ({detail})")
                 print(f"[warmup] waiting for backend: {detail}", flush=True)
                 await asyncio.sleep(5)
             else:
                 print("[warmup] backend never became healthy, skipping", flush=True)
+                _warmup_set(state, detail="SGLang unavailable", add_done=2)
                 return
             for i in range(2):
+                _warmup_set(state, detail=f"Warming kernels {state['warmup_done'] + 1}/{state['warmup_total']} · ~1 min")
                 result = await generate(backend, "Introduce yourself in three sentences.", 64)
+                _warmup_set(state, add_done=1)
                 print(f"[warmup] run {i + 1}: {result}", flush=True)
     except Exception as e:
         print(f"[warmup] failed: {type(e).__name__}: {e}", flush=True)
+        _warmup_set(state, detail=f"Warmup error: {type(e).__name__}")
     finally:
-        app["state"]["warming"] -= 1
+        state["warming"] -= 1
+        if state["warming"] <= 0:
+            _warmup_set(state, detail="Ready · press Start")
 
 
 async def warm_rounds(app, rounds):
+    state = app["state"]
+    _warmup_set(state, add_total=len(rounds), detail=f"Warming kernels {state['warmup_done']}/{state['warmup_total'] + len(rounds)} · ~1 min")
     try:
         async with app["lock"]:
             for prompts in rounds:
+                done, total = state["warmup_done"] + 1, state["warmup_total"]
+                _warmup_set(state, detail=f"Warming kernels {done}/{total} · ~1 min")
                 t = time.perf_counter()
                 for _ in range(2):
                     await asyncio.gather(*(generate(app["backend"], p, 16) for p in prompts))
+                _warmup_set(state, add_done=1)
                 print(f"[warmup] {len(prompts)} turret(s) from {prompts[0][:30]!r}: {time.perf_counter() - t:.1f}s", flush=True)
     except Exception as e:
         print(f"[warmup] failed: {type(e).__name__}: {e}", flush=True)
+        _warmup_set(state, detail=f"Warmup error: {type(e).__name__}")
     finally:
-        app["state"]["warming"] -= 1
+        state["warming"] -= 1
+        if state["warming"] <= 0:
+            _warmup_set(state, detail="Ready · press Start")
 
 
 async def warmup_page(request):
@@ -428,18 +459,26 @@ def main():
 
     if args.backend == "mock":
         backend = MockBackend(args.mock_rate, args.mock_ttft)
-        labels = ("MOCK", "simulated tokens, no model")
+        # model_label = secondary line, hw_label = hero brand line in the booth UI
+        labels = ("simulated tokens, no model", "MOCK")
     elif args.backend == "claude":
         backend = ClaudeBackend(args.claude_model, args.claude_bin)
-        labels = (f"Claude {args.claude_model}", "cloud API, pipeline test only")
+        labels = ("cloud API, pipeline test only", f"Claude {args.claude_model}")
     else:
         backend = SGLangBackend(args.sglang_url, args.sglang_model, args.temperature)
-        labels = ("Qwen3.8-27B · Quark INT4", "1× Ryzen AI MAX+ 395 · Radeon 8060S · local SGLang")
+        labels = ("Qwen3.8-27B · Quark INT4 · SGLang", "AMD Ryzen AI MAX+ 395 · Radeon 8060S")
 
     app = web.Application()
     app["backend"] = backend
     app["lock"] = asyncio.Lock()
-    app["state"] = {"warming": 0, "warmed": set(), "tasks": set()}
+    app["state"] = {
+        "warming": 0,
+        "warmed": set(),
+        "tasks": set(),
+        "warmup_done": 0,
+        "warmup_total": 0,
+        "warmup_detail": "",
+    }
     app["max_tokens"] = args.max_tokens
     app["max_tokens_cap"] = args.max_tokens_cap
     app["max_lanes"] = max(1, args.max_lanes)

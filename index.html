@@ -15,77 +15,158 @@
     font-family: "Segoe UI", "Microsoft JhengHei", "Noto Sans CJK TC", "PingFang TC", sans-serif;
   }
   body { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100vh; }
-  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 2vw; padding: 2vh 2.4vw 1.4vh; }
-  h1 { font-size: 4.4vh; font-weight: 800; letter-spacing: .02em; }
-  h1 em { font-style: normal; color: var(--accent); }
-  .sub { margin-top: .5vh; font-size: 2.1vh; color: var(--dim); }
-  .badges { text-align: right; white-space: nowrap; }
-  #model { font-size: 3vh; font-weight: 700; }
-  #hw { margin-top: .4vh; font-size: 2vh; color: var(--dim); }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 2vw; padding: 2vh 2.4vw 1.2vh; }
+  .brand-row { display: flex; align-items: center; gap: 1vw; flex-wrap: wrap; }
+  .local-badge {
+    display: none; flex: 0 0 auto; padding: .45vh .9vw; border-radius: 8px;
+    font-size: 1.8vh; font-weight: 900; letter-spacing: .08em; color: #04140a; background: #3dff9a;
+  }
+  .local-badge.on { display: inline-block; }
+  h1 { font-size: 4.8vh; font-weight: 800; letter-spacing: .01em; line-height: 1.05; }
+  .model-line { margin-top: .55vh; font-size: 2.6vh; font-weight: 700; color: #d7dbe6; }
+  .sub { margin-top: .45vh; font-size: 2vh; color: var(--dim); }
+  .sub em { font-style: normal; color: var(--accent); font-weight: 700; }
+  .key-hints { text-align: right; font-size: 1.8vh; font-weight: 650; color: var(--dim); line-height: 1.55; white-space: nowrap; }
+  .key-hints kbd {
+    display: inline-block; min-width: 1.6em; padding: .15vh .45vw; margin: 0 .15vw;
+    border: 1px solid var(--line); border-radius: 6px; background: #151a26; color: var(--fg);
+    font: inherit; font-weight: 800; text-align: center;
+  }
   main { display: grid; grid-template-columns: minmax(0, 1fr) 27vw; gap: 1.6vw; padding: 0 2.4vw; min-height: 0; }
   canvas {
-    display: block; width: 100%; height: 100%; border: 1px solid var(--line); border-radius: 16px;
+    display: block; width: 100%; height: 100%; min-height: 0; max-height: 100%;
+    border: 1px solid var(--line); border-radius: 16px;
     background: radial-gradient(ellipse at 50% 110%, #182036 0%, #0a0c12 62%, var(--bg) 100%);
   }
   aside { display: flex; flex-direction: column; gap: 1.6vh; min-height: 0; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 2vh 1.5vw; }
-  .tps { font-size: 16vh; font-weight: 800; line-height: .95; font-variant-numeric: tabular-nums; }
+  .scoreline { display: flex; align-items: baseline; gap: .4vw; min-width: 0; }
+  .tps {
+    font-size: min(10vh, 5.2vw); font-weight: 800; line-height: .92; letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums; min-width: 0;
+  }
   .tps.idle { color: #343a4a; }
-  .unit { margin-left: .5vw; font-size: 3.2vh; font-weight: 700; color: var(--dim); }
+  .unit { flex: none; font-size: 3.2vh; font-weight: 700; color: var(--dim); }
   .label { margin-top: 1vh; font-size: 1.9vh; color: var(--dim); }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8vh 1vw; }
-  .stats b { display: block; font-size: 4.4vh; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stats b { display: block; font-size: 3.4vh; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .stats span { font-size: 1.8vh; color: var(--dim); }
-  .out { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-  .out .label { margin-top: 0; }
+  .out { display: flex; flex-direction: column; flex: 1; min-height: 16vh; }
+  .out-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .8vw; }
+  .out .label { flex: 1; min-width: 0; margin-top: 0; }
+  #viewOut {
+    flex: none; padding: .45vh .7vw; border-radius: 8px; border: 2px solid #3dff9a;
+    background: transparent; color: #3dff9a; font: inherit; font-size: 1.6vh; font-weight: 800; cursor: pointer;
+  }
+  #viewOut:disabled { opacity: .35; cursor: default; border-color: var(--line); color: var(--dim); }
+  #reader {
+    position: fixed; inset: 0; z-index: 7; display: none; place-items: center;
+    background: rgba(4, 6, 12, .72);
+  }
+  #reader.on { display: grid; }
+  .reader-panel {
+    width: min(72vw, 980px); max-height: 78vh; display: flex; flex-direction: column;
+    padding: 2vh 1.6vw; border-radius: 20px; background: #0f121a; border: 1px solid var(--line);
+  }
+  .reader-bar { display: flex; align-items: center; gap: .5vw; }
+  #readerTabs { display: flex; gap: .4vw; flex: 1; min-width: 0; flex-wrap: wrap; }
+  #readerTabs button, #readerClose {
+    padding: .6vh .8vw; border-radius: 8px; border: 2px solid var(--line);
+    background: transparent; color: var(--dim); font: inherit; font-size: 1.7vh; font-weight: 700; cursor: pointer;
+  }
+  #readerTabs button.on { color: #04140a; background: #3dff9a; border-color: #3dff9a; }
+  #readerClose { color: var(--fg); }
+  .reader-q { margin-top: 1.2vh; font-size: 1.7vh; color: var(--dim); white-space: pre-wrap; }
+  #readerBody {
+    flex: 1; min-height: 0; overflow: auto; margin-top: 1vh; padding: 1.2vh 1vw;
+    border-radius: 12px; background: #07080c; color: var(--fg);
+    font: 1.8vh/1.5 Consolas, "Cascadia Mono", "Microsoft JhengHei", monospace;
+    white-space: pre-wrap; word-break: break-word; user-select: text;
+  }
   #ticker {
-    flex: 1; min-height: 0; overflow: hidden; margin-top: 1vh;
+    flex: 1; min-height: 4.5em; overflow: hidden; margin-top: 1vh;
     display: flex; flex-direction: column; justify-content: flex-end;
     font: 1.7vh/1.45 Consolas, "Cascadia Mono", "Microsoft JhengHei", monospace; color: #a3abbd;
     white-space: pre-wrap; word-break: break-all;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 35%);
     mask-image: linear-gradient(to bottom, transparent 0, #000 35%);
   }
-  footer { display: flex; gap: 1.4vw; padding: 1.8vh 2.4vw 2.4vh; }
-  .stages { flex: 1; display: flex; gap: 1.4vw; }
-  .stage {
-    flex: 1; display: flex; align-items: center; justify-content: center; gap: .8vw; padding: 2vh 1vw;
-    font: inherit; font-size: 3vh; font-weight: 700; color: var(--fg); cursor: pointer;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--c) 22%, transparent), transparent);
-    border: 2px solid var(--c); border-radius: 16px; transition: transform .1s, opacity .2s;
+  footer {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+    gap: .45vh 1vw; padding: .6vh 2.4vw .8vh;
   }
-  .stage:hover:not(:disabled) { transform: translateY(-2px); }
-  .stage:disabled, .turrets button:disabled { opacity: .3; cursor: default; }
-  .stage kbd { font: inherit; font-size: 2.2vh; padding: .2vh .6vw; border-radius: 8px; background: var(--c); color: #000; }
-  .stage small { font-size: 2.2vh; font-weight: 600; color: var(--dim); }
-  .turrets { display: flex; align-items: center; gap: .5vw; padding: 0 1.2vw; border: 2px solid var(--line); border-radius: 16px; }
-  .turrets span { margin-right: .3vw; font-size: 2.2vh; font-weight: 700; color: var(--dim); }
+  .ask { grid-column: 1 / -1; display: flex; gap: .6vw; min-width: 0; }
+  #prompt {
+    flex: 1; min-width: 0; height: 8.4vh; padding: .7vh 1vw; border-radius: 14px; border: 2px solid var(--line);
+    background: #10141d; color: var(--fg); font: inherit; font-size: 1.8vh; line-height: 1.35;
+    resize: none; overflow: auto;
+  }
+  #prompt:focus { outline: none; border-color: #3dff9a; }
+  #prompt:disabled { opacity: .45; }
+  #go {
+    flex: 0 0 auto; padding: 1.1vh 1.5vw; border: 0; border-radius: 14px; cursor: pointer;
+    background: #3dff9a; color: #04140a; font: inherit; font-size: 2.3vh; font-weight: 800;
+  }
+  #go:disabled { opacity: .35; cursor: default; }
+  .topics, .leetcode { display: flex; align-items: center; gap: .5vw; min-width: 0; flex-wrap: wrap; }
+  .leetcode { grid-column: 1 / -1; }
+  .leetcode > span { font-size: 1.7vh; font-weight: 800; color: var(--dim); white-space: nowrap; }
+  .topic {
+    padding: .55vh .8vw; border-radius: 12px; cursor: pointer; font: inherit; font-size: 1.7vh; font-weight: 700;
+    color: var(--dim); background: transparent; border: 2px solid var(--line); white-space: nowrap;
+  }
+  .topic.on { color: #04140a; background: var(--c); border-color: var(--c); }
+  .topic:disabled, .lc:disabled, .turrets button:disabled, #go:disabled { opacity: .35; cursor: default; }
+  .turrets { display: flex; align-items: center; gap: .4vw; padding: .35vh .7vw; border: 2px solid var(--line); border-radius: 14px; justify-self: end; }
+  .turrets span { margin-right: .2vw; font-size: 1.8vh; font-weight: 700; color: var(--dim); white-space: nowrap; }
   .turrets button {
-    width: 5.6vh; height: 5.6vh; font: inherit; font-size: 2.6vh; font-weight: 800; color: var(--dim); cursor: pointer;
+    width: 4.2vh; height: 4.2vh; font: inherit; font-size: 2vh; font-weight: 800; color: var(--dim); cursor: pointer;
     background: transparent; border: 2px solid var(--line); border-radius: 10px;
   }
   .turrets button.on { color: var(--fg); border-color: var(--fg); background: #1a2030; }
   #banner {
-    position: fixed; top: 0; left: 50%; transform: translateX(-50%); display: none;
+    position: fixed; top: 0; left: 50%; transform: translateX(-50%); display: none; z-index: 5;
     padding: .7vh 1.6vw; border-radius: 0 0 12px 12px; font-size: 2.1vh; font-weight: 800;
   }
   #banner.warn { display: block; background: #ffb020; color: #111; }
   #banner.bad { display: block; background: #ff3b3b; color: #fff; }
+  #banner.ok { display: block; background: #3dff9a; color: #04140a; }
+  #wow {
+    position: fixed; inset: 0; display: none; place-items: center; z-index: 6;
+    background: rgba(4, 6, 12, .55); pointer-events: none;
+  }
+  #wow.on { display: grid; }
+  #wow .panel {
+    text-align: center; padding: 4vh 5vw; border-radius: 24px;
+    background: rgba(15, 18, 26, .92); border: 1px solid var(--line);
+    animation: wowIn .25s ease-out;
+  }
+  #wow .rate { font-size: 14vh; font-weight: 900; line-height: .95; font-variant-numeric: tabular-nums; }
+  #wow .rate span { margin-left: .4vw; font-size: 4vh; font-weight: 700; color: var(--dim); }
+  #wow .meta { margin-top: 1.2vh; font-size: 2.8vh; font-weight: 700; color: #d7dbe6; }
+  @keyframes wowIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 </style>
 </head>
 <body>
 <header>
   <div>
-    <h1>Every token <em>breaks a brick</em></h1>
-    <div class="sub">Each token the model generates fires a laser at one brick, so the wall falls exactly as fast as the model writes</div>
+    <div class="brand-row">
+      <span class="local-badge" id="localBadge">LOCAL</span>
+      <h1 id="hw">…</h1>
+    </div>
+    <div class="model-line" id="model">…</div>
+    <div class="sub">Every token <em>breaks a brick</em> — the wall falls exactly as fast as the model writes</div>
   </div>
-  <div class="badges"><div id="model">…</div><div id="hw"></div></div>
+  <div class="key-hints" id="keyHints">
+    <kbd>Enter</kbd> start<br>
+    <kbd>Esc</kbd> cancel · <kbd>F</kbd> fullscreen
+  </div>
 </header>
 <main>
   <canvas id="game"></canvas>
   <aside>
     <div class="card">
-      <div><span class="tps idle" id="tps">0.0</span><span class="unit">tok/s</span></div>
+      <div class="scoreline"><span class="tps idle" id="tps">0.0</span><span class="unit">tok/s</span></div>
       <div class="label" id="tpsLabel">Decode speed · single request · excludes time to first token</div>
       <div class="label" id="spec"></div>
     </div>
@@ -96,16 +177,35 @@
       <div><b id="phase">Idle</b><span>Status</span></div>
     </div>
     <div class="card out">
-      <div class="label" id="outLabel">Live model output (watch the speed, not the words)</div>
+      <div class="out-head">
+        <div class="label" id="outLabel">Live model output (watch the speed, not the words)</div>
+        <button type="button" id="viewOut" disabled>View output</button>
+      </div>
       <div id="ticker"><span id="out"></span></div>
     </div>
   </aside>
 </main>
 <footer>
-  <div class="stages" id="stages"></div>
-  <div class="turrets" id="turrets"><span>Turrets</span></div>
+  <form class="ask" id="ask">
+    <textarea id="prompt" maxlength="4000" rows="2" placeholder="Type a question, or pick a topic to fill one in" autocomplete="off"></textarea>
+    <button id="go" type="submit">Start</button>
+  </form>
+  <div class="topics" id="topics"></div>
+  <div class="turrets" id="turrets"><span>Requests</span></div>
+  <div class="leetcode" id="leetcode"><span>LeetCode</span></div>
 </footer>
 <div id="banner"></div>
+<div id="wow"><div class="panel"><div class="rate" id="wowRate">0<span>tok/s</span></div><div class="meta" id="wowMeta"></div></div></div>
+<div id="reader">
+  <div class="reader-panel">
+    <div class="reader-bar">
+      <div id="readerTabs"></div>
+      <button type="button" id="readerClose">Close</button>
+    </div>
+    <div class="reader-q" id="readerQ"></div>
+    <pre id="readerBody"></pre>
+  </div>
+</div>
 <script>
 "use strict";
 
@@ -114,26 +214,46 @@
 // The translation stage keeps a Chinese source sentence; its answer is English.
 const STAGES = [
   {
-    name: "Stage 1", title: "Table", colors: ["#ff4d4f", "#ff7a45", "#ffc53d"], reveal: ["27B parameters", "on this machine"],
+    name: "Months", title: "Months", colors: ["#ff4d4f", "#ff7a45", "#ffc53d"], reveal: ["27B parameters", "on this machine"],
     prompt: "Create a markdown table of the 12 months with columns: month, number of days, season in Taiwan, and a typical festival.",
   },
   {
-    name: "Stage 2", title: "Web page", colors: ["#2f6bff", "#13c2c2", "#95de64"], reveal: ["No cloud", "One chip"],
+    name: "To-do list", title: "To-do list", colors: ["#2f6bff", "#13c2c2", "#95de64"], reveal: ["No cloud", "One chip"],
     prompt: "Write a complete single-file to-do list web page in HTML, CSS and JavaScript that can add, delete and mark items as done, with code comments.",
   },
   {
-    name: "Stage 3", title: "Translate", colors: ["#9254de", "#f759ab", "#ffadd2"], reveal: ["STRIX HALO", "Local inference"],
+    name: "Translate", title: "Translate", colors: ["#9254de", "#f759ab", "#ffadd2"], reveal: ["STRIX HALO", "Local inference"],
     prompt: "Translate this Chinese sentence into English, then explain each part of it in English: 「歡迎來到我們的攤位！這台小電腦正在本機即時執行大型語言模型，不需要連上雲端。」",
   },
 ];
 // With several turrets each streams its own request: the chosen stage's prompt, then the next ones of this pool.
+const CODE_STAGE = {
+  name: "LeetCode", title: "LeetCode", colors: ["#95de64", "#36cfc9", "#1677ff"], reveal: ["Python", "on this chip"],
+};
+const CODE_TOKENS = 384;
+const PROBLEMS = [
+  {
+    title: "Two Sum",
+    prompt: "Solve this in Python. Include the function and one short comment on why it is correct.\n\nTwo Sum: given a list of integers nums and an integer target, return the indices of the two different numbers that add up to target. Each input has exactly one answer.\nExample: nums = [2, 7, 11, 15], target = 9, answer [0, 1].",
+  },
+  {
+    title: "Valid Parentheses",
+    prompt: "Solve this in Python. Include the function and one short comment on why it is correct.\n\nValid Parentheses: given a string containing only the brackets ()[]{}, return true when every opening bracket is closed by the same type in the right order.\nExample: \"()[]{}\" is true, \"(]\" is false.",
+  },
+  {
+    title: "Climbing Stairs",
+    prompt: "Solve this in Python. Include the function and one short comment on why it is correct.\n\nClimbing Stairs: you climb a staircase of n steps and can take 1 or 2 steps at a time. Return how many distinct ways there are to reach the top.\nExample: n = 3 has 3 ways.",
+  },
+];
+let codeMode = false;
 const EXTRA_PROMPTS = [
   "Generate a JSON array of 10 fictional gadgets. Each item has name, price_usd, category, and a one-sentence description.",
 ];
 const LANE_COLORS = ["#ff4d4f", "#36cfc9", "#ffd666", "#b37feb"];
 
 const params = new URLSearchParams(location.search);
-const ATTRACT_S = Number(params.get("attract") || 0);
+// Booth default: attract on for local SGLang unless URL sets attract (use ?attract=0 to disable).
+let ATTRACT_S = params.has("attract") ? Number(params.get("attract") || 0) : null;
 const FONT = '"Segoe UI", "Microsoft JhengHei", "Noto Sans CJK TC", sans-serif';
 const $ = (id) => document.getElementById(id);
 const canvas = $("game");
@@ -145,8 +265,9 @@ let turrets = Math.min(4, Math.max(1, Number(params.get("turrets")) || 1));
 let health = { ok: true, warming: false };
 let wall = null, run = null, layer = null, wallSerial = 0;
 let beams = [], sparks = [];
-let nextStage = 0, idleSince = performance.now(), lastDraw = 0, framePending = false;
+let nextStage = 0, selectedTopic = 0, idleSince = performance.now(), lastDraw = 0, framePending = false;
 let persistentBanner = null, flashUntil = 0, pageVersion = null;
+let attractPending = false, wasWarming = false, wowUntil = 0;
 
 function hexToRgb(h) {
   const n = parseInt(h.slice(1), 16);
@@ -214,9 +335,9 @@ function geometry() {
   const x = W * 0.04, y = H * 0.06, width = W - 2 * x;
   const gap = Math.max(2, Math.round(W * (wall.cols > 20 ? 0.002 : 0.0028)));
   const bw = (width - gap * (wall.cols - 1)) / wall.cols;
-  const bh = Math.min(bw * 0.5, (H * 0.58 - gap * (wall.rows - 1)) / wall.rows);
-  const R = Math.max(14, H * (wall.lanes.length > 1 ? 0.028 : 0.035));
-  const ty = H - R * 1.2, laneW = wall.laneCols * (bw + gap);
+  const bh = Math.min(bw * 0.5, (H * 0.48 - gap * (wall.rows - 1)) / wall.rows);
+  const R = Math.max(12, H * (wall.lanes.length > 1 ? 0.024 : 0.03));
+  const ty = H - Math.max(R * 3.2, H * 0.1), laneW = wall.laneCols * (bw + gap);
   const guns = wall.lanes.map((_, i) => [x + (i + 0.5) * laneW - gap / 2, ty]);
   return { x, y, width, height: wall.rows * bh + (wall.rows - 1) * gap, gap, bw, bh, R, ty, guns };
 }
@@ -359,19 +480,30 @@ function drawTurrets(g, now) {
 function drawCaption(g, now) {
   const n = wall.lanes.length;
   let text = null, sub = null;
-  if (!run) {
-    text = "Press 1 / 2 / 3 to start";
-    if (n > 1) sub = `${n} turrets = ${n} requests at once, each clearing its own lane`;
+  if (health.warming) {
+    text = "Warming up";
+    sub = health.warmup_detail || "Compiling kernels for this booth…";
+  } else if (!health.ok) {
+    text = "Waiting for local SGLang";
+    sub = health.detail || "Backend offline";
+  } else if (!run) {
+    text = "Type a prompt and press Start";
+    sub = n > 1
+      ? `${n} requests at once · or click the wall`
+      : "Or click the wall · local SGLang on Strix Halo";
   } else if (!run.finished) {
-    if (run.lanes.every((ln) => ln.first === null)) text = `Reading the prompt (prefill) ${((now - run.t0) / 1000).toFixed(1)} s`;
+    if (run.lanes.every((ln) => ln.first === null)) {
+      text = `Reading the prompt (prefill) ${((now - run.t0) / 1000).toFixed(1)} s`;
+      if (run.attract) sub = "local SGLang on Strix Halo";
+    }
   } else if (run.result) {
     const r = run.result, rate = r.decode_tps != null ? r.decode_tps.toFixed(1) : "—";
     text = run.cleared ? "Wall cleared!" : "Finished";
     sub = n > 1
       ? `${n} requests · ${r.completion_tokens} tokens · ${fmtS(r.e2e_s)} · total ${rate} tok/s`
-      : `${r.completion_tokens} tokens · ${fmtS(r.e2e_s)} · ${rate} tok/s · press 1 / 2 / 3 again`;
+      : `${r.completion_tokens} tokens · ${fmtS(r.e2e_s)} · ${rate} tok/s · press Start again`;
   } else {
-    text = "Press 1 / 2 / 3 to try again";
+    text = "Press Start to go again";
   }
   if (!text) return;
   const y = g.y + g.height + (g.ty - g.R * 2.4 - (g.y + g.height)) * 0.5;
@@ -481,7 +613,11 @@ function onEvent(r, ev) {
   const ln = r.lanes[ev.lane];
   if (!ln) return;
   if (ev.type === "token") {
-    if (ev.text && ev.lane === 0) appendOut(ev.text);
+    if (ev.text) {
+      ln.text += ev.text;
+      if (ev.lane === 0) appendOut(ev.text);
+      $("viewOut").disabled = false;
+    }
     if (!ev.n) return;
     if (ln.first === null) startLane(r, ln, now);
     ln.arrivals.push([now, ev.total]);
@@ -500,6 +636,17 @@ function onEvent(r, ev) {
   }
 }
 
+function showWow(res) {
+  if (!res || res.decode_tps == null) return;
+  $("wowRate").innerHTML = `${res.decode_tps.toFixed(1)}<span>tok/s</span>`;
+  $("wowMeta").textContent = `TTFT ${fmtS(res.ttft_s)} · ${res.completion_tokens} tokens · local SGLang`;
+  $("wow").classList.add("on");
+  wowUntil = performance.now() + 2000;
+  setTimeout(() => {
+    if (performance.now() >= wowUntil - 30) $("wow").classList.remove("on");
+  }, 2000);
+}
+
 function finish(r, now) {
   if (r.finished) return;
   r.finished = true;
@@ -513,6 +660,7 @@ function finish(r, now) {
     $("ttft").textContent = fmtS(res.ttft_s);
     $("elapsed").textContent = fmtS(res.e2e_s);
     $("count").textContent = `${res.completion_tokens} / ${wall.total}`;
+    if (!r.error) showWow(res);
   }
   setSpec();
   setPhase(r.error ? "Error" : "Done");
@@ -525,30 +673,69 @@ function lanePrompts(i, n) {
   return Array.from({ length: n }, (_, k) => pool[(i + k) % pool.length]);
 }
 
-async function start(i) {
+function promptsForRun(i, n, typed) {
+  if (!typed) return lanePrompts(i, n);
+  const rest = lanePrompts(i, Math.max(n - 1, 1));
+  return Array.from({ length: n }, (_, k) => (k === 0 ? typed : rest[(k - 1) % rest.length]));
+}
+
+function selectTopic(i) {
+  if (run && !run.finished) return;
+  codeMode = false;
+  selectedTopic = i;
+  $("prompt").value = STAGES[i].prompt;
+  document.querySelectorAll(".topic").forEach((b, k) => b.classList.toggle("on", k === i));
+  document.querySelectorAll(".lc").forEach((b) => b.classList.remove("on"));
+  if (wall) buildWall(STAGES[i], cfg.max_tokens, turrets);
+  if (wall) $("count").textContent = `0 / ${wall.total}`;
+  wake();
+}
+
+function selectProblem(i) {
+  if (run && !run.finished) return;
+  codeMode = true;
+  $("prompt").value = PROBLEMS[i].prompt;
+  document.querySelectorAll(".topic").forEach((b) => b.classList.remove("on"));
+  document.querySelectorAll(".lc").forEach((b, k) => b.classList.toggle("on", k === i));
+  if (wall) buildWall(CODE_STAGE, CODE_TOKENS, turrets);
+  if (wall) $("count").textContent = `0 / ${wall.total}`;
+  wake();
+}
+
+async function start(fromAttract = false) {
   if ((run && !run.finished) || !health.ok || health.warming) return;
-  const stage = STAGES[i], n = turrets;
+  $("wow").classList.remove("on");
+  const coding = codeMode && !fromAttract;
+  const i = fromAttract ? nextStage : selectedTopic;
+  const typed = fromAttract ? "" : $("prompt").value.trim().slice(0, 4000);
+  const stage = coding ? CODE_STAGE : STAGES[i], n = turrets;
+  const tokens = coding ? CODE_TOKENS : cfg.max_tokens;
+  const prompts = promptsForRun(i, n, typed);
   nextStage = (i + 1) % STAGES.length;
-  buildWall(stage, cfg.max_tokens, n);
+  buildWall(stage, tokens, n);
   beams = [];
   sparks = [];
   $("out").textContent = "";
+  closeReader();
+  $("viewOut").disabled = true;
   setTps(null);
   $("ttft").textContent = "—";
   $("count").textContent = `0 / ${wall.total}`;
   setPhase("Reading prompt");
-  setButtons(false);
   const r = (run = {
     t0: performance.now(),
-    lanes: Array.from({ length: n }, () => ({ first: null, arrivals: [], delay: 200, final: null, result: null })),
-    result: null, error: null, finished: false, cleared: false, ctrl: new AbortController(),
+    prompts,
+    lanes: Array.from({ length: n }, () => ({ text: "", first: null, arrivals: [], delay: 200, final: null, result: null })),
+    result: null, error: null, finished: false, cleared: false, attract: fromAttract, ctrl: new AbortController(),
   });
+  attractPending = false;
+  setButtons(false);
   setSpec();
   try {
     const res = await fetch("api/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompts: lanePrompts(i, n), max_tokens: cfg.max_tokens }),
+      body: JSON.stringify({ prompts, max_tokens: tokens }),
       signal: r.ctrl.signal,
     });
     if (!res.ok) throw new Error(res.status === 429 ? "server busy, try again in a moment" : `HTTP ${res.status}`);
@@ -585,10 +772,10 @@ function setTurrets(n) {
     : "Decode speed · single request · excludes time to first token";
   $("ttftLabel").textContent = multi ? "Time to first token (slowest request)" : "Time to first token";
   $("outLabel").textContent = multi
-    ? "Turret 1 output (watch the speed, not the words)"
+    ? "First request (watch the speed, not the words)"
     : "Live model output (watch the speed, not the words)";
   run = null;
-  buildWall(wall ? wall.stage : STAGES[0], cfg.max_tokens, turrets);
+  buildWall(wall ? wall.stage : STAGES[0], codeMode ? CODE_TOKENS : cfg.max_tokens, turrets);
   beams = [];
   sparks = [];
   setTps(null);
@@ -597,7 +784,37 @@ function setTurrets(n) {
   $("elapsed").textContent = "—";
   $("count").textContent = `0 / ${wall.total}`;
   $("out").textContent = "";
+  closeReader();
+  $("viewOut").disabled = true;
   setPhase("Idle");
+}
+
+function closeReader() {
+  $("reader").classList.remove("on");
+}
+
+function showReaderLane(i) {
+  const prompts = run && run.prompts ? run.prompts : [];
+  $("readerQ").textContent = prompts[i] ? `Question: ${prompts[i]}` : "";
+  $("readerBody").textContent = (run && run.lanes[i] && run.lanes[i].text) || "";
+  document.querySelectorAll("#readerTabs button").forEach((b, k) => b.classList.toggle("on", k === i));
+}
+
+function openReader() {
+  if (!run || !run.lanes.some((ln) => ln.text)) return;
+  const tabs = $("readerTabs");
+  tabs.replaceChildren();
+  if (run.lanes.length > 1) {
+    run.lanes.forEach((_, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = `Request ${i + 1}`;
+      b.onclick = () => showReaderLane(i);
+      tabs.appendChild(b);
+    });
+  }
+  showReaderLane(0);
+  $("reader").classList.add("on");
 }
 
 function appendOut(text) {
@@ -621,7 +838,7 @@ function setSpec() {
   } else if (run.lanes.length > 1) {
     const rates = run.lanes.map((ln) => (ln.result ? ln.result.decode_tps : laneRate(ln)));
     el.textContent = rates.some((v) => v != null)
-      ? `Per turret: ${rates.map((v) => (v == null ? "—" : v.toFixed(1))).join(" / ")} tok/s`
+      ? `Per request: ${rates.map((v) => (v == null ? "—" : v.toFixed(1))).join(" / ")} tok/s`
       : "";
   } else if (cfg.backend === "sglang") {
     const ln = run.lanes[0], a = ln.arrivals;
@@ -634,7 +851,10 @@ function setSpec() {
 }
 
 function setButtons(enabled) {
-  document.querySelectorAll(".stage, #turrets button").forEach((b) => (b.disabled = !enabled));
+  const locked = !!(run && !run.finished);
+  $("go").disabled = !enabled;
+  $("prompt").disabled = !enabled;
+  document.querySelectorAll(".topic, .lc, #turrets button").forEach((b) => (b.disabled = locked));
 }
 
 function banner(kind, text) {
@@ -652,15 +872,24 @@ async function poll() {
   try {
     health = await (await fetch("api/health")).json();
   } catch {
-    health = { ok: false, detail: "game server not responding" };
+    health = { ok: false, detail: "game server not responding", warming: false };
   }
   if (performance.now() > flashUntil) {
     if (!health.ok) banner("bad", `Backend offline: ${health.detail}`);
-    else if (health.warming) banner("warn", "Warming up the model…");
-    else if (persistentBanner) banner(...persistentBanner);
+    else if (health.warming) {
+      const d = health.warmup_done || 0, t = health.warmup_total || 0;
+      banner("warn", health.warmup_detail || (t ? `Warming kernels ${d}/${t} · ~1 min` : "Warming kernels…"));
+    } else if (wasWarming) {
+      banner("ok", (health.warmup_detail || "Ready · press Start").replace("press 1 / 2 / 3", "press Start"));
+      flashUntil = performance.now() + 4000;
+      wasWarming = false;
+    } else if (persistentBanner) banner(...persistentBanner);
     else banner(null, "");
   }
+  wasWarming = wasWarming || !!health.warming;
   if (!run || run.finished) setButtons(health.ok && !health.warming);
+  // Idle / warmup captions sit on the canvas; redraw when status changes.
+  if (!run || run.finished) wake();
   // A display left open picks up an edited page by itself, but never in the middle of a round.
   pageVersion ??= health.page;
   if (health.page && health.page !== pageVersion && (!run || run.finished)) location.reload();
@@ -669,8 +898,10 @@ async function poll() {
 async function loadConfig() {
   const c = await (await fetch("api/config")).json();
   cfg = { ...c, max_tokens: Number(params.get("tokens")) || c.max_tokens, max_lanes: c.max_lanes || 1 };
-  $("model").textContent = cfg.model_label;
   $("hw").textContent = cfg.hw_label;
+  $("model").textContent = cfg.model_label;
+  $("localBadge").classList.toggle("on", cfg.backend === "sglang");
+  if (ATTRACT_S == null) ATTRACT_S = cfg.backend === "sglang" ? 20 : 0;
   if (cfg.backend === "mock") persistentBanner = ["bad", "MOCK: simulated tokens, not model output"];
   else if (cfg.backend === "claude") persistentBanner = ["warn", "Claude (cloud): pipeline test only, not local"];
   for (let n = 1; n <= cfg.max_lanes; n++) {
@@ -686,6 +917,7 @@ async function loadConfig() {
     const res = await fetch("api/warmup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rounds }) });
     if (!res.ok) flash(`Warmup request failed: HTTP ${res.status}`);
   }
+  wake();
 }
 
 function wake() {
@@ -728,27 +960,61 @@ function frame(now) {
   drawSparks(now, dt);
   drawTurrets(g, now);
   drawCaption(g, now);
-  if ((run && !run.finished) || beams.length || sparks.length || wall.fadeStart) wake();
+  if ((run && !run.finished) || beams.length || sparks.length || wall.fadeStart || health.warming) wake();
 }
 
 STAGES.forEach((s, i) => {
   const b = document.createElement("button");
-  b.className = "stage";
+  b.type = "button";
+  b.className = "topic" + (i === 0 ? " on" : "");
   b.style.setProperty("--c", s.colors[0]);
-  b.innerHTML = `<kbd>${i + 1}</kbd>${s.name}<small>${s.title}</small>`;
-  b.onclick = () => start(i);
-  $("stages").appendChild(b);
+  b.textContent = s.title;
+  b.onclick = () => selectTopic(i);
+  $("topics").appendChild(b);
+});
+PROBLEMS.forEach((p, i) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "topic lc";
+  b.style.setProperty("--c", CODE_STAGE.colors[0]);
+  b.textContent = p.title;
+  b.onclick = () => selectProblem(i);
+  $("leetcode").appendChild(b);
+});
+$("viewOut").onclick = openReader;
+$("readerClose").onclick = closeReader;
+$("reader").addEventListener("click", (e) => {
+  if (e.target === $("reader")) closeReader();
+});
+$("ask").addEventListener("submit", (e) => {
+  e.preventDefault();
+  idleSince = performance.now();
+  start(false);
+});
+$("prompt").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    $("ask").requestSubmit();
+  }
+});
+canvas.addEventListener("click", () => {
+  if (document.activeElement === $("prompt")) return;
+  if (!run || run.finished) start(false);
 });
 
 addEventListener("keydown", (e) => {
   idleSince = performance.now();
-  const i = Number(e.key) - 1;
-  if (Number.isInteger(i) && i >= 0 && i < STAGES.length) start(i);
-  else if (e.key === "t" || e.key === "T") setTurrets((turrets % cfg.max_lanes) + 1);
+  const typing = document.activeElement === $("prompt");
+  if (e.key === "t" || e.key === "T") {
+    if (!typing) setTurrets((turrets % cfg.max_lanes) + 1);
+  } else if (e.key === "Escape" && $("reader").classList.contains("on")) closeReader();
   else if (e.key === "Escape" && run && !run.finished) run.ctrl.abort();
-  else if (e.key === "f" || e.key === "F") {
+  else if ((e.key === "f" || e.key === "F") && !typing) {
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen();
+  } else if (e.key === " " && !typing) {
+    e.preventDefault();
+    start(false);
   }
 });
 addEventListener("pointerdown", () => (idleSince = performance.now()));
@@ -762,11 +1028,12 @@ loadConfig()
     return poll();
   })
   .catch((e) => flash(`Could not load config: ${e.message}`));
-setInterval(poll, 3000);
+setInterval(poll, 1500);
 setInterval(() => {
   const idle = !run || run.finished;
-  if (ATTRACT_S > 0 && idle && health.ok && !health.warming && performance.now() - idleSince > ATTRACT_S * 1000) {
-    start(nextStage);
+  if (ATTRACT_S > 0 && idle && health.ok && !health.warming && !$("prompt").value.trim() && performance.now() - idleSince > ATTRACT_S * 1000) {
+    attractPending = true;
+    start(true);
   }
 }, 1000);
 </script>
